@@ -1,0 +1,132 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: payflow-db
+    environment:
+      POSTGRES_USER: payflow
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-payflow}
+      POSTGRES_DB: payflow_auth
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [payflow]
+
+  redis:
+    image: redis:7-alpine
+    container_name: payflow-redis
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+    networks: [payflow]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    container_name: payflow-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [payflow]
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://postgres:5432/payflow_auth
+      DB_USERNAME: payflow
+      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [payflow]
+
+  wallet-service:
+    build: ./wallet-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/payflow_wallet
+      DB_USERNAME: payflow
+      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      REDIS_HOST: redis
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [payflow]
+
+  payment-service:
+    build: ./payment-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/payflow_payment
+      DB_USERNAME: payflow
+      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      WALLET_SERVICE_URL: http://wallet-service:8082
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Must be a pre-registered ADMIN account in auth-service (see that
+      # service's README/application.yml comment) — the default dev password
+      # can't actually pass RegisterRequest's own validation (needs a digit),
+      # so it's overridden here with a value that can.
+      SERVICE_ACCOUNT_EMAIL: payment-service@payflow.internal
+      SERVICE_ACCOUNT_PASSWORD: dev-service-account-password-change-me-1
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [payflow]
+
+  notification-service:
+    build: ./notification-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/payflow_notification
+      DB_USERNAME: payflow
+      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      KAFKA_BOOTSTRAP: kafka:9092
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [payflow]
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      # The ONLY published port. Configurable because 8080 is a common
+      # default that collides with other local services; override with
+      # GATEWAY_PORT in .env if 8090 isn't free either.
+      - "${GATEWAY_PORT:-8090}:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      WALLET_SERVICE_URL: http://wallet-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      REDIS_HOST: redis
+    depends_on: [auth-service, wallet-service, payment-service, notification-service]
+    networks: [payflow]
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  payflow:
+    driver: bridge

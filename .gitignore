@@ -1,0 +1,14 @@
+# Real secrets live here (JWT_SECRET, DB_PASSWORD). Only .env.example is tracked.
+.env
+
+# Local agent/editor state.
+.claude/
+
+# Each service is tracked in its own repository; this repo holds only the
+# orchestration that spans them (compose, DB bootstrap, docs).
+/api-gateway/
+/auth-service/
+/wallet-service/
+/payment-service/
+/notification-service/
+/frontend/
