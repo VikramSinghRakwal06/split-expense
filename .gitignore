@@ -8,7 +8,7 @@
 # orchestration that spans them (compose, DB bootstrap, docs).
 /api-gateway/
 /auth-service/
-/wallet-service/
-/payment-service/
+/group-service/
+/expense-service/
 /notification-service/
 /frontend/

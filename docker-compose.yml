@@ -1,35 +1,35 @@
 services:
   postgres:
     image: postgres:16
-    container_name: payflow-db
+    container_name: splitexpense-db
     environment:
-      POSTGRES_USER: payflow
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-payflow}
-      POSTGRES_DB: payflow_auth
+      POSTGRES_USER: splitexpense
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-splitexpense}
+      POSTGRES_DB: splitexpense_auth
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U payflow"]
+      test: ["CMD-SHELL", "pg_isready -U splitexpense"]
       interval: 5s
       timeout: 3s
       retries: 10
-    networks: [payflow]
+    networks: [splitexpense]
 
   redis:
     image: redis:7-alpine
-    container_name: payflow-redis
+    container_name: splitexpense-redis
     volumes:
       - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 10
-    networks: [payflow]
+    networks: [splitexpense]
 
   kafka:
     image: confluentinc/cp-kafka:7.7.0
-    container_name: payflow-kafka
+    container_name: splitexpense-kafka
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -45,66 +45,66 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-    networks: [payflow]
+    networks: [splitexpense]
 
   auth-service:
     build: ./auth-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/payflow_auth
-      DB_USERNAME: payflow
-      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      DB_URL: jdbc:postgresql://postgres:5432/splitexpense_auth
+      DB_USERNAME: splitexpense
+      DB_PASSWORD: ${DB_PASSWORD:-splitexpense}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
     depends_on:
       postgres: {condition: service_healthy}
-    networks: [payflow]
+    networks: [splitexpense]
 
-  wallet-service:
-    build: ./wallet-service
+  group-service:
+    build: ./group-service
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/payflow_wallet
-      DB_USERNAME: payflow
-      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      DB_URL: jdbc:postgresql://postgres:5432/splitexpense_group
+      DB_USERNAME: splitexpense
+      DB_PASSWORD: ${DB_PASSWORD:-splitexpense}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       REDIS_HOST: redis
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    networks: [payflow]
+    networks: [splitexpense]
 
-  payment-service:
-    build: ./payment-service
+  expense-service:
+    build: ./expense-service
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/payflow_payment
-      DB_USERNAME: payflow
-      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      DB_URL: jdbc:postgresql://postgres:5432/splitexpense_expense
+      DB_USERNAME: splitexpense
+      DB_PASSWORD: ${DB_PASSWORD:-splitexpense}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       AUTH_SERVICE_URL: http://auth-service:8081
-      WALLET_SERVICE_URL: http://wallet-service:8082
+      GROUP_SERVICE_URL: http://group-service:8082
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      # Must be a pre-registered ADMIN account in auth-service (see that
-      # service's README/application.yml comment) — the default dev password
-      # can't actually pass RegisterRequest's own validation (needs a digit),
-      # so it's overridden here with a value that can.
-      SERVICE_ACCOUNT_EMAIL: payment-service@payflow.internal
+      # Must be a pre-registered ADMIN account in auth-service — it is what
+      # expense-service authenticates as when applying balance deltas to
+      # group-service's internal endpoints. The password needs a digit to pass
+      # RegisterRequest's own validation, which the in-code default lacks.
+      SERVICE_ACCOUNT_EMAIL: expense-service@splitexpense.internal
       SERVICE_ACCOUNT_PASSWORD: dev-service-account-password-change-me-1
     depends_on:
       postgres: {condition: service_healthy}
       kafka: {condition: service_healthy}
-    networks: [payflow]
+    networks: [splitexpense]
 
   notification-service:
     build: ./notification-service
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/payflow_notification
-      DB_USERNAME: payflow
-      DB_PASSWORD: ${DB_PASSWORD:-payflow}
+      DB_URL: jdbc:postgresql://postgres:5432/splitexpense_notification
+      DB_USERNAME: splitexpense
+      DB_PASSWORD: ${DB_PASSWORD:-splitexpense}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       KAFKA_BOOTSTRAP: kafka:9092
     depends_on:
       postgres: {condition: service_healthy}
       kafka: {condition: service_healthy}
-    networks: [payflow]
+    networks: [splitexpense]
 
   api-gateway:
     build: ./api-gateway
@@ -116,17 +116,17 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       AUTH_SERVICE_URL: http://auth-service:8081
-      WALLET_SERVICE_URL: http://wallet-service:8082
-      PAYMENT_SERVICE_URL: http://payment-service:8083
+      GROUP_SERVICE_URL: http://group-service:8082
+      EXPENSE_SERVICE_URL: http://expense-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8084
       REDIS_HOST: redis
-    depends_on: [auth-service, wallet-service, payment-service, notification-service]
-    networks: [payflow]
+    depends_on: [auth-service, group-service, expense-service, notification-service]
+    networks: [splitexpense]
 
 volumes:
   pgdata:
   redisdata:
 
 networks:
-  payflow:
+  splitexpense:
     driver: bridge
