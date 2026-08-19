@@ -89,7 +89,7 @@ The API gateway comes up on `http://localhost:8090` (override with `GATEWAY_PORT
 ## Service repositories
 
 - [api-gateway](https://github.com/VikramSinghRakwal06/api-gateway)
-- [auth-service](https://github.com/VikramSinghRakwal06/Payflow-auth-service)
-- [group-service](https://github.com/VikramSinghRakwal06/wallet-service)
+- [auth-service](https://github.com/VikramSinghRakwal06/split-expense-AuthService)
+- [group-service](https://github.com/VikramSinghRakwal06/split-expense-GroupService)
 - [expense-service](https://github.com/VikramSinghRakwal06/payment-service)
 - [notification-service](https://github.com/VikramSinghRakwal06/notification-service)
