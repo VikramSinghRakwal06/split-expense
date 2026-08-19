@@ -4,11 +4,12 @@
 # Local agent/editor state.
 .claude/
 
-# Each service is tracked in its own repository; this repo holds only the
-# orchestration that spans them (compose, DB bootstrap, docs).
+# Each backend service is tracked in its own repository; this repo holds
+# the orchestration that spans them (compose, DB bootstrap, docs), plus
+# the frontend.
 /api-gateway/
 /auth-service/
 /group-service/
 /expense-service/
 /notification-service/
-/frontend/
+frontend/.git.bak/
