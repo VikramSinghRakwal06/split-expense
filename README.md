@@ -15,12 +15,54 @@ This repository is the orchestration root: Docker Compose, database bootstrap, a
 
 ## How it works
 
-1. **Create an account and a group.** Register, then start a group for whatever you're splitting — a trip, a flat, a one-off dinner. Set the group's currency once; every expense in it uses that currency.
-2. **Add the people you're splitting with.** Add members by their account id or the email they registered with — no invite links, no guessing who's in the group.
-3. **Record an expense and choose how it's split.** Equal shares, exact amounts, percentages, or weighted shares (e.g. 2:1) — SplitExpense does the arithmetic and assigns each participant their share, down to the last paisa.
-4. **Balances update instantly, for everyone.** The moment an expense is recorded, group-service recalculates who owes whom — no separate "recalculate" step, and everyone in the group sees the same numbers.
-5. **Get notified without checking back.** Every expense and settlement fires a Kafka event; notification-service turns it into an in-app notification for everyone it affects, seconds after it happens.
-6. **Settle up whenever you're ready.** Record a payment between two members and the debt closes — partial payments are fine, and the balance reflects exactly what's still owed afterward.
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 👥 Create a group
+
+Start a group for a trip, a flat, or a one-off — set the currency once, and every expense in it uses that currency.
+
+</td>
+<td width="33%" valign="top">
+
+### ➕ Add members
+
+Add people by their account id or the email they registered with. No invite links, no guessing who's in.
+
+</td>
+<td width="33%" valign="top">
+
+### 🧾 Record an expense
+
+Split it equally, by exact amount, by percentage, or by weighted shares — down to the last paisa.
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+### ⚖️ Balances update live
+
+The instant an expense is recorded, group-service recalculates who owes whom — same numbers for everyone, no refresh step.
+
+</td>
+<td width="33%" valign="top">
+
+### 🔔 Get notified
+
+Every expense and settlement fires a Kafka event; notification-service turns it into an in-app notification within seconds.
+
+</td>
+<td width="33%" valign="top">
+
+### 🤝 Settle up
+
+Record a payment between two members and the debt closes. Partial payments work — the balance reflects exactly what's left.
+
+</td>
+</tr>
+</table>
 
 ## Architecture
 
